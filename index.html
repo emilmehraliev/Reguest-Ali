@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Али Шамси — Block Blast 10×10</title>
+
+<style>
+:root{
+  --bg:#0a1f44;
+  --panel:#08314a;
+  --accent:#ffb300;
+  --cell-gap:4px;
+  --highlight:rgba(255,255,0,0.5);
+}
+
+html,body{
+  height:100%;
+  margin:0;
+  font-family:Arial,Helvetica,sans-serif;
+  background:var(--bg);
+  color:#fff;
+  -webkit-font-smoothing:antialiased;
+}
+
+.container{
+  max-width:720px;
+  margin:16px auto;
+  padding:12px;
+  text-align:center;
+  box-sizing:border-box;
+}
+
+.screen{
+  display:none;
+}
+
+.screen.active{
+  display:block;
+}
+
+#languageScreen{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  padding:20px;
+  box-sizing:border-box;
+}
+
+#languageScreen:not(.active){
+  display:none;
+}
+
+.lang-buttons{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  margin-top:20px;
+}
+
+.carousel{
+  position:relative;
+  width:100%;
+  max-width:700px;
+  height:200px;
+  margin:0 auto 12px;
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 6px 22px rgba(0,0,0,.45);
+}
+
+.carousel img{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  opacity:0;
+  transition:opacity .8s ease;
+}
+
+.carousel img.active{
+  opacity:1;
+}
+
+.info-box{
+  background:rgba(8,17,34,0.6);
+  padding:14px;
+  border-radius:12px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.5);
+  text-align:left;
+  max-width:700px;
+  margin:0 auto 12px;
+}
+
+.info-box strong{
+  display:block;
+  font-size:20px;
+  margin-bottom:8px;
+}
+
+.controls-row{
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  margin-top:12px;
+  flex-wrap:wrap;
+}
+
+button.btn{
+  appearance:none;
+  -webkit-appearance:none;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;
+  cursor:pointer;
+  border:0;
+  border-radius:14px;
+  padding:12px 18px;
+  font-weight:700;
+  font-size:16px;
+}
+
+button.primary{
+  background:var(--accent);
+  color:#072033;
+}
+
+/* Game area */
+#gameArea{
+  display:none;
+  margin:18px auto;
+  max-width:760px;
+}
+
+#boardWrap{
+  width:min(520px, 92vw);
+  margin:0 auto;
+  background:rgba(255,255,255,0.03);
+  padding:12px;
+  border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.5);
+  position:relative;
+}
+
+#grid{
+  width:100%;
+  aspect-ratio:1/1;
+  display:grid;
+  grid-template-columns:repeat(10,1fr);
+  gap:var(--cell-gap);
+  background:transparent;
+}
+
+.cell{
+  background:rgba(255,255,255,0.03);
+  border-radius:6px;
+  width:100%;
+  height:100%;
+  position:relative;
+  overflow:hidden;
+  transition:background .1s ease;
+}
+
+.cell.filled{
+  box-shadow:inset 0 -5px 10px rgba(0,0,0,.3);
+}
+
+.cell.highlight{
+  background:var(--highlight);
+}
+
+.cell .block{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  color:#062;
+  border-radius:6px;
+  transform:scale(1);
+  transition:transform .08s ease, opacity .3s ease;
+}
+
+#queue{
+  display:flex;
+  gap:12px;
+  justify-content:center;
+  margin-top:12px;
+  flex-wrap:wrap;
+}
+
+.pieceBox{
+  width:120px;
+  min-height:80px;
+  background:rgba(255,255,255,0.03);
+  border-radius:12px;
+  padding:8px;
+  box-sizing:border-box;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  cursor:pointer;
+}
+
+.pieceCanvas{
+  width:100%;
+  height:64px;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:4px;
+}
+
+.pcell{
+  width:100%;
+  height:100%;
+  background:transparent;
+  border-radius:4px;
+}
+
+.pcell .dot{
+  width:100%;
+  height:100%;
+  border-radius:4px;
+}
+
+.pieceBox.selected{
+  outline:3px solid rgba(255,255,255,0.12);
+  transform:translateY(-4px);
+}
+
+#hud{
+  display:flex;
+  gap:12px;
+  justify-content:center;
+  margin-top:10px;
+  font-weight:700;
+}
+
+#score{
+  font-size:18px;
+}
+
+@media (max-width:520px){
+  .carousel{
+    height:150px;
+  }
+
+  .pieceBox{
+    width:95px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<!-- Экран выбора языка -->
+<div id="languageScreen" class="screen active">
+  <h1>🌍 Выберите язык</h1>
+  <div class="lang-buttons">
+    <button class="btn primary" onclick="chooseLanguage('ru')">Русский</button>
+    <button class="btn primary" onclick="chooseLanguage('en')">English</button>
+    <button class="btn primary" onclick="chooseLanguage('az')">Azərbaycanca</button>
+  </div>
+</div>
+
+<div class="container screen" id="mainContent">
+  <div class="carousel" id="carousel">
+    <img src="https://fnkaa.ru/wp-content/uploads/2025/02/Aliaga-Vahid.jpg" class="active" alt="">
+    <img src="https://media-cdn.tripadvisor.com/media/photo-s/15/f0/12/1f/easy-to-find.jpg" alt="">
+    <img src="https://cdn.touryup.com/i/att/480/aliagha-vahid-monument-tour-baku-azerbaijan.jpg" alt="">
+  </div>
+
+  <div class="info-box" id="infoBox">
+    <strong id="infoTitle"></strong>
+    <div id="infoText"></div>
+  </div>
+
+  <div class="controls-row">
+    <button id="readBtn" class="btn primary"></button>
+    <button id="startBtn" class="btn primary" style="display:none;"></button>
+  </div>
+</div>
+
+<!-- Game area -->
+<div id="gameArea">
+  <div id="boardWrap">
+    <div id="grid"></div>
+    <div id="queue" aria-hidden="false"></div>
+    <div id="hud">
+      <div id="score"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== LANGUAGES ===== */
+
+const translations = {
+  ru: {
+    langTitle: "🌍 Выберите язык",
+    infoTitle: "Алиага Вахид",
+    infoText: `Выдающийся азербайджанский поэт и мастер газели, родившийся 17 февраля 1895 года в Баку.
+Он вырос в семье плотника, получил начальное образование в медресе, но бросил учёбу из-за бедности и работал плотником, прежде чем полностью посвятить себя литературе.
+Вахид известен как яркий представитель жанра газели в азербайджанской поэзии и последователь традиций классиков, таких как Физули, а его стихи отличаются простотой языка, мелодичностью и народным духом.
+Он также переводил газели Низами, Хагани, Физули и других великих поэтов на азербайджанский язык.
+За вклад в литературу ему присвоено звание Заслуженного деятеля искусств; он стал одним из первых лауреатов Государственной премии Азербайджана.
+Алиага Вахид умер 1 октября 1965 года и был похоронен на Аллее почётного захоронения в Баку.
+В честь поэта установлен памятник и именем Вахида названы сад и памятные места в Ичери-Шехере.`,
+    readBtn: "Узнать про Алиага Вахида",
+    reading: "Читаю...",
+    startBtn: "Начать игру",
+    active: "Активная",
+    queue: "В очереди",
+    score: "Очки"
+  },
+
+  en: {
+    langTitle: "🌍 Choose language",
+    infoTitle: "Aliagha Vahid",
+    infoText: `Aliagha Vahid was an outstanding Azerbaijani poet and a master of the ghazal genre, born on February 17, 1895, in Baku.
+He grew up in the family of a carpenter and received his early education in a madrasa, but due to poverty he had to leave his studies and work as a carpenter before fully dedicating himself to literature.
+Vahid is known as one of the brightest representatives of the ghazal genre in Azerbaijani poetry and as a follower of classical traditions, including the legacy of Fuzuli.
+His poems are remembered for their simple language, melody and strong connection with the spirit of the people.
+He also translated ghazals by Nizami, Khagani, Fuzuli and other great poets into Azerbaijani.
+For his contribution to literature, he received the title of Honored Art Worker and became one of the first laureates of the Azerbaijan State Prize.
+Aliagha Vahid died on October 1, 1965, and was buried in the Alley of Honor in Baku.
+A monument, a garden and several memorial places in Icherisheher are named in his honor.`,
+    readBtn: "Learn about Aliagha Vahid",
+    reading: "Reading...",
+    startBtn: "Start game",
+    active: "Active",
+    queue: "In queue",
+    score: "Score"
+  },
+
+  az: {
+    langTitle: "🌍 Dil seçin",
+    infoTitle: "Əliağa Vahid",
+    infoText: `Əliağa Vahid 17 fevral 1895-ci ildə Bakıda anadan olmuş görkəmli Azərbaycan şairi və qəzəl ustasıdır.
+O, dülgər ailəsində böyümüş, ilk təhsilini mədrəsədə almış, lakin yoxsulluq səbəbindən təhsilini yarımçıq qoyaraq dülgər işləmişdir.
+Daha sonra özünü tamamilə ədəbiyyata həsr etmişdir.
+Vahid Azərbaycan poeziyasında qəzəl janrının ən parlaq nümayəndələrindən biri kimi tanınır.
+O, Füzuli kimi klassiklərin ənənələrini davam etdirmiş, şeirlərində sadə dil, ahəngdarlıq və xalq ruhu ilə seçilmişdir.
+O, həmçinin Nizami, Xaqani, Füzuli və digər böyük şairlərin qəzəllərini Azərbaycan dilinə tərcümə etmişdir.
+Ədəbiyyata verdiyi töhfələrə görə ona Əməkdar incəsənət xadimi adı verilmişdir və o, Azərbaycan Dövlət mükafatının ilk laureatlarından biri olmuşdur.
+Əliağa Vahid 1 oktyabr 1965-ci ildə vəfat etmiş və Bakıda Fəxri xiyabanda dəfn olunmuşdur.
+Şairin şərəfinə İçərişəhərdə abidə ucaldılmış, bağ və xatirə yerləri onun adı ilə adlandırılmışdır.`,
+    readBtn: "Əliağa Vahid haqqında öyrən",
+    reading: "Oxuyuram...",
+    startBtn: "Oyuna başla",
+    active: "Aktiv",
+    queue: "Növbədə",
+    score: "Xal"
+  }
+};
+
+let currentLang = "ru";
+
+function t(key){
+  return translations[currentLang][key];
+}
+
+function chooseLanguage(lang){
+  currentLang = lang;
+
+  document.documentElement.lang = lang;
+
+  document.getElementById("languageScreen").classList.remove("active");
+  document.getElementById("mainContent").classList.add("active");
+
+  applyTexts();
+}
+
+function applyTexts(){
+  document.querySelector("#languageScreen h1").innerText = t("langTitle");
+  document.getElementById("infoTitle").innerText = t("infoTitle");
+  document.getElementById("infoText").innerText = t("infoText");
+  document.getElementById("readBtn").innerText = t("readBtn");
+  document.getElementById("startBtn").innerText = t("startBtn");
+  document.getElementById("score").innerText = `${t("score")}: 0`;
+}
+
+/* ===== carousel loop ===== */
+(function(){
+  const imgs = document.querySelectorAll('#carousel img');
+  let i = 0;
+
+  setInterval(() => {
+    imgs[i].classList.remove('active');
+    i = (i + 1) % imgs.length;
+    imgs[i].classList.add('active');
+  }, 3500);
+})();
+
+/* ===== speech ===== */
+
+const readBtn = document.getElementById('readBtn');
+const startBtn = document.getElementById('startBtn');
+const infoText = document.getElementById('infoText');
+const mainContent = document.getElementById('mainContent');
+
+function getSpeechLang(){
+  if(currentLang === "ru") return "ru-RU";
+  if(currentLang === "en") return "en-US";
+  if(currentLang === "az") return "az-AZ";
+  return "ru-RU";
+}
+
+function speakText(text, onEnd){
+  try{
+    window.speechSynthesis.cancel();
+  }catch(e){}
+
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = getSpeechLang();
+  u.rate = 1;
+  u.onend = onEnd;
+
+  window.speechSynthesis.speak(u);
+}
+
+readBtn.addEventListener('click', () => {
+  readBtn.disabled = true;
+  readBtn.textContent = t("reading");
+
+  speakText(infoText.innerText, () => {
+    document.getElementById('carousel').style.display = 'none';
+    document.getElementById('infoBox').style.display = 'none';
+
+    startBtn.style.display = 'inline-block';
+    readBtn.style.display = 'none';
+  });
+});
+
+startBtn.addEventListener('click', () => {
+  mainContent.style.display = 'none';
+  document.getElementById('gameArea').style.display = 'block';
+  initBlockBlast();
+});
+
+/* ===== Block Blast 10x10 ===== */
+
+function initBlockBlast(){
+  const N = 10;
+
+  const COLORS = [
+    '#ff6b6b',
+    '#ffd93d',
+    '#6bff9a',
+    '#4dd0e1',
+    '#9b59b6',
+    '#ff8c42'
+  ];
+
+  const SHAPES = [
+    [[0,0]],
+    [[0,0],[1,0]],
+    [[0,0],[1,0],[2,0]],
+    [[0,0],[0,1],[1,0],[1,1]],
+    [[0,0],[0,1],[1,0]],
+    [[1,0],[0,1],[1,1],[2,1]],
+    [[0,0],[0,1],[0,2]],
+    [[0,0],[1,0],[1,1],[2,1]]
+  ];
+
+  const gridEl = document.getElementById('grid');
+  const queueEl = document.getElementById('queue');
+  const scoreEl = document.getElementById('score');
+
+  const board = Array.from({length:N}, () => Array(N).fill(null));
+
+  let score = 0;
+  let selectedIndex = null;
+
+  function updateScore(){
+    scoreEl.textContent = `${t("score")}: ${score}`;
+  }
+
+  function buildGrid(){
+    gridEl.innerHTML = '';
+
+    for(let r = 0; r < N; r++){
+      for(let c = 0; c < N; c++){
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.r = r;
+        cell.dataset.c = c;
+        gridEl.appendChild(cell);
+      }
+    }
+  }
+
+  buildGrid();
+
+  function cellAt(r, c){
+    return gridEl.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+  }
+
+  function renderBoard(){
+    for(let r = 0; r < N; r++){
+      for(let c = 0; c < N; c++){
+        const cell = cellAt(r, c);
+
+        cell.innerHTML = '';
+        cell.classList.remove('filled', 'highlight');
+
+        if(board[r][c]){
+          const div = document.createElement('div');
+          div.className = 'block';
+          div.style.background = board[r][c];
+          div.style.width = '100%';
+          div.style.height = '100%';
+
+          cell.appendChild(div);
+          cell.classList.add('filled');
+        }
+      }
+    }
+  }
+
+  function randomPieceObj(){
+    const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+    const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+    return {
+      shape: shape.map(s => [s[0], s[1]]),
+      color
+    };
+  }
+
+  let queue = [
+    randomPieceObj(),
+    randomPieceObj(),
+    randomPieceObj()
+  ];
+
+  function renderQueue(){
+    queueEl.innerHTML = '';
+
+    queue.forEach((p, i) => {
+      const box = document.createElement('div');
+      box.className = 'pieceBox';
+      box.dataset.idx = i;
+
+      const canvas = document.createElement('div');
+      canvas.className = 'pieceCanvas';
+      canvas.style.gridTemplateColumns = 'repeat(4,1fr)';
+
+      for(let k = 0; k < 16; k++){
+        const pc = document.createElement('div');
+        pc.className = 'pcell';
+        canvas.appendChild(pc);
+      }
+
+      let minx = Infinity;
+      let miny = Infinity;
+
+      p.shape.forEach(([x, y]) => {
+        if(x < minx) minx = x;
+        if(y < miny) miny = y;
+      });
+
+      const offsetX = 1;
+      const offsetY = 0;
+
+      p.shape.forEach(([x, y]) => {
+        const px = x - minx + offsetX;
+        const py = y - miny + offsetY;
+        const pos = py * 4 + px;
+
+        if(pos >= 0 && pos < 16){
+          const cell = canvas.children[pos];
+          const dot = document.createElement('div');
+
+          dot.className = 'dot';
+          dot.style.width = '100%';
+          dot.style.height = '100%';
+          dot.style.background = p.color;
+          dot.style.borderRadius = '4px';
+
+          cell.appendChild(dot);
+        }
+      });
+
+      box.appendChild(canvas);
+
+      const hint = document.createElement('div');
+      hint.style.marginTop = '6px';
+      hint.style.fontSize = '13px';
+      hint.textContent = i === 0 ? t("active") : t("queue");
+
+      box.appendChild(hint);
+
+      box.addEventListener('click', () => {
+        selectedIndex = i;
+        updateHighlightPreview();
+        renderQueue();
+      });
+
+      queueEl.appendChild(box);
+    });
+
+    document.querySelectorAll('.pieceBox').forEach(b => {
+      b.classList.toggle('selected', Number(b.dataset.idx) === selectedIndex);
+    });
+  }
+
+  function canPlacePieceAt(piece, r0, c0){
+    return piece.shape.every(([x, y]) => {
+      const rr = r0 + y;
+      const cc = c0 + x;
+
+      return rr >= 0 &&
+             rr < N &&
+             cc >= 0 &&
+             cc < N &&
+             board[rr][cc] === null;
+    });
+  }
+
+  function placePieceAt(piece, r0, c0){
+    piece.shape.forEach(([x, y]) => {
+      board[r0 + y][c0 + x] = piece.color;
+    });
+  }
+
+  function updateHighlightPreview(){
+    document.querySelectorAll('.cell.highlight').forEach(c => {
+      c.classList.remove('highlight');
+    });
+
+    if(selectedIndex === null) return;
+  }
+
+  function mousePreview(e){
+    if(selectedIndex === null) return;
+
+    const rect = gridEl.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const cellW = rect.width / N;
+    const cellH = rect.height / N;
+
+    const c = Math.floor(x / cellW);
+    const r = Math.floor(y / cellH);
+
+    document.querySelectorAll('.cell.highlight').forEach(c => {
+      c.classList.remove('highlight');
+    });
+
+    const piece = queue[selectedIndex];
+
+    piece.shape.forEach(([dx, dy]) => {
+      const rr = r + dy;
+      const cc = c + dx;
+
+      if(rr >= 0 && rr < N && cc >= 0 && cc < N){
+        cellAt(rr, cc).classList.add('highlight');
+      }
+    });
+  }
+
+  gridEl.addEventListener('mousemove', mousePreview);
+
+  gridEl.addEventListener('mouseleave', () => {
+    document.querySelectorAll('.cell.highlight').forEach(c => {
+      c.classList.remove('highlight');
+    });
+  });
+
+  gridEl.addEventListener('click', (e) => {
+    if(selectedIndex === null) return;
+
+    const rect = gridEl.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const c = Math.floor(x / (rect.width / N));
+    const r = Math.floor(y / (rect.height / N));
+
+    const piece = queue[selectedIndex];
+
+    if(canPlacePieceAt(piece, r, c)){
+      placePieceAt(piece, r, c);
+
+      queue[selectedIndex] = randomPieceObj();
+      selectedIndex = null;
+
+      checkLines();
+      renderBoard();
+      renderQueue();
+    }
+  });
+
+  function checkLines(){
+    const fullRows = [];
+    const fullCols = [];
+
+    for(let r = 0; r < N; r++){
+      if(board[r].every(v => v !== null)){
+        fullRows.push(r);
+      }
+    }
+
+    for(let c = 0; c < N; c++){
+      let full = true;
+
+      for(let r = 0; r < N; r++){
+        if(board[r][c] === null){
+          full = false;
+          break;
+        }
+      }
+
+      if(full){
+        fullCols.push(c);
+      }
+    }
+
+    fullRows.forEach(r => {
+      for(let c = 0; c < N; c++){
+        const cell = cellAt(r, c);
+        cell.classList.add('highlight');
+      }
+    });
+
+    fullCols.forEach(c => {
+      for(let r = 0; r < N; r++){
+        const cell = cellAt(r, c);
+        cell.classList.add('highlight');
+      }
+    });
+
+    if(fullRows.length || fullCols.length){
+      setTimeout(() => {
+        let destroyed = 0;
+
+        fullRows.forEach(r => {
+          for(let c = 0; c < N; c++){
+            if(board[r][c]){
+              board[r][c] = null;
+              destroyed++;
+            }
+          }
+        });
+
+        fullCols.forEach(c => {
+          for(let r = 0; r < N; r++){
+            if(board[r][c]){
+              board[r][c] = null;
+              destroyed++;
+            }
+          }
+        });
+
+        score += destroyed * 20;
+        updateScore();
+        renderBoard();
+      }, 250);
+    }
+  }
+
+  renderBoard();
+  renderQueue();
+  updateScore();
+}
+</script>
+
+</body>
+</html>
